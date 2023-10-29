@@ -1,15 +1,17 @@
 mod error;
+mod notification;
+
 use dbus::{blocking::Connection, message::MatchRule};
 use error::RevereError;
-use std::result::Result;
-use std::sync::Arc;
+use notification::Notification;
+use std::{result::Result, sync::Arc};
 
 // Hacked up prototype to just set up a connection
 // with D-Bus, listen for all messages, and print them.
 //
 // TODO:
-//     * DBus Message Parsing into Notification
 //     * integrate a basic GUI
+//     * better DBus Message Parsing
 //     * filter D-Bus messages
 //     * figure out how end users can config the GUI
 
@@ -25,6 +27,8 @@ pub fn main() -> Result<(), RevereError> {
     let match_rule = MatchRule::new();
     bus_cnx.add_match(match_rule.clone(), move |_: (), _cnx, msg| {
         println!("Received a message: {:?}", msg);
+        let notification = Notification::from(msg);
+        println!("{notification:?}");
         true
     })?;
 
