@@ -6,10 +6,10 @@ use std::collections::HashMap;
 /// The Revere Notification type
 #[derive(Debug)]
 pub struct Notification {
-    kind: MessageType,
-    path: String,
-    title: String,
-    summary: String,
+    pub kind: MessageType,
+    pub path: String,
+    pub title: String,
+    pub summary: String,
 }
 impl From<&Message> for Notification {
     /// Implement DBus Message conversion into a Notification

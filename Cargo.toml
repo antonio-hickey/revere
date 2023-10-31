@@ -9,3 +9,4 @@ repository = "https://github.com/antonio-hickey/revere"
 
 [dependencies]
 dbus = "0.9.7"
+x11 = "2.21.0"
