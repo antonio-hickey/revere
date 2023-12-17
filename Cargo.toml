@@ -9,4 +9,7 @@ repository = "https://github.com/antonio-hickey/revere"
 
 [dependencies]
 dbus = "0.9.7"
-x11 = "2.21.0"
+wayland-client = "0.28"
+wayland-protocols = { version = "0.28", features = ["unstable_protocols"] }
+smithay-client-toolkit = "0.15"
+cairo-rs = "0.14"
