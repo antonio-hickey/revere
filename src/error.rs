@@ -3,6 +3,7 @@ use std::fmt;
 #[derive(Debug)]
 pub enum RevereError {
     FailedToWriteUpdated,
+    DisplayFlushError,
     StdIoError(std::io::Error),
     DBusCnxError(dbus::Error),
     DBusMethodError(dbus::MethodErr),
