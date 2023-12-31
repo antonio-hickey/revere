@@ -48,8 +48,8 @@ pub fn main() -> Result<(), RevereError> {
                     .dispatch(&mut (), |_, _, _| {})
                     .unwrap();
                 notification_window.draw(&title);
-                notification_window.flush_display().ok();
             }
+            notification_window.flush_display().ok();
         }
 
         true

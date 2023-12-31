@@ -1,16 +1,20 @@
+use std::ops::Deref;
+
 use cairo::{Context, FontSlant, FontWeight, Format, ImageSurface};
 use smithay_client_toolkit::{
     reexports::{
         client::{
             protocol::{
-                wl_compositor,
+                wl_buffer::WlBuffer,
+                wl_compositor::{self, WlCompositor},
                 wl_shm::{Format as WlFormat, WlShm},
                 wl_surface::WlSurface,
             },
             Display, EventQueue, GlobalManager,
         },
         protocols::wlr::unstable::layer_shell::v1::client::{
-            zwlr_layer_shell_v1, zwlr_layer_surface_v1,
+            zwlr_layer_shell_v1::{self, ZwlrLayerShellV1},
+            zwlr_layer_surface_v1::{self, ZwlrLayerSurfaceV1},
         },
     },
     shm::DoubleMemPool,
@@ -19,8 +23,12 @@ use smithay_client_toolkit::{
 use crate::error::RevereError;
 
 pub struct NotificationWindow {
-    _layer_surface: Option<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1>,
+    layer_shell: Option<ZwlrLayerShellV1>,
+    layer_surface: Option<ZwlrLayerSurfaceV1>,
     surface: Option<WlSurface>,
+    buffer: Option<WlBuffer>,
+    compositor: Option<WlCompositor>,
+    shm: Option<WlShm>,
     pools: DoubleMemPool,
     display: Display,
     pub event_queue: EventQueue,
@@ -68,15 +76,19 @@ impl NotificationWindow {
 
         // Use a double buffering mechanism for smooth updates
         let pools = DoubleMemPool::new(
-            shm.into(),
+            shm.clone().into(),
             |_: smithay_client_toolkit::reexports::client::DispatchData| {},
         )
         .expect("Failed to create memory pool");
 
         // Return a instance of `NotificationWindow`
         Self {
-            _layer_surface: Some(layer_surface.detach()),
+            layer_shell: Some(layer_shell.detach()),
+            layer_surface: Some(layer_surface.detach()),
             surface: Some(surface.detach()),
+            compositor: Some(compositor.detach()),
+            shm: Some(shm.detach()),
+            buffer: None,
             display,
             event_queue,
             pools,
@@ -128,19 +140,19 @@ impl NotificationWindow {
                 }
 
                 // Create a buffer from the memory pool for rendering the window
-                let buffer = pool.buffer(
+                self.buffer = Some(pool.buffer(
                     0,
                     width as i32,
                     height as i32,
                     (width * bytes_per_px) as i32,
                     WlFormat::Argb8888,
-                );
+                ));
 
                 // Attach the buffer to the wayland surface, then damage the
                 // surface to signal to wayland server to redraw (update) a surface
                 // region, and finally commit the surface.
                 if let Some(surface) = &self.surface {
-                    surface.attach(Some(&buffer), 0, 0);
+                    surface.attach(self.buffer.as_ref(), 0, 0);
                     surface.damage(0, 0, width as i32, height as i32);
                     surface.commit();
                 }
@@ -152,7 +164,21 @@ impl NotificationWindow {
     ///
     /// Non - blocking: If not all the requests could be written
     /// then returns RevereError::DisplayFlushError
-    pub fn flush_display(&self) -> Result<(), RevereError> {
+    pub fn flush_display(&mut self) -> Result<(), RevereError> {
+        // Destroy all the proxies attached to the event queue
+        // before flushing the display, this is to clean up the
+        // unsafe code block in `draw()` ensuring all memory safety.
+        if let Some(surface) = &self.surface {
+            surface.destroy();
+        }
+        if let Some(layer_surface) = &self.layer_surface {
+            layer_surface.destroy();
+        }
+        if let Some(buffer) = &self.buffer {
+            buffer.destroy();
+        }
+
+        // Flush the display
         self.display
             .flush()
             .map_err(|_| RevereError::DisplayFlushError)
