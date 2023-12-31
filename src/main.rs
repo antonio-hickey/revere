@@ -33,20 +33,23 @@ pub fn main() -> Result<(), RevereError> {
     bus_cnx.add_match(match_rule.clone(), move |_: (), _cnx, msg| {
         println!("Received a message: {:?}", msg);
         let notification = Notification::from(msg);
-        println!("{notification:?}");
+        println!("Parsed into notification: {notification:?}");
 
-        // Create a new mutable instance of `NotificationWindow`
-        let mut notification_window = NotificationWindow::new();
+        // Only display notifications with a title
+        if let Some(title) = notification.title {
+            // Create a new mutable instance of `NotificationWindow`
+            let mut notification_window = NotificationWindow::new();
 
-        // Render the notification window for 3 seconds
-        let start_time = Instant::now();
-        while start_time.elapsed() < Duration::from_secs(3) {
-            notification_window
-                .event_queue
-                .dispatch(&mut (), |_, _, _| {})
-                .unwrap();
-            notification_window.draw(&notification.title);
-            notification_window.flush_display().ok();
+            // Render the notification window for 3 seconds
+            let start_time = Instant::now();
+            while start_time.elapsed() < Duration::from_secs(3) {
+                notification_window
+                    .event_queue
+                    .dispatch(&mut (), |_, _, _| {})
+                    .unwrap();
+                notification_window.draw(&title);
+                notification_window.flush_display().ok();
+            }
         }
 
         true
