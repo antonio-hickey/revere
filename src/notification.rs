@@ -2,6 +2,7 @@ use dbus::arg::{self, PropMap, RefArg, Variant};
 use dbus::message::MessageType;
 use dbus::Message;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
 /// The Revere Notification type
 #[derive(Debug)]
@@ -59,5 +60,11 @@ impl From<&Message> for Notification {
             title,
             summary,
         }
+    }
+}
+impl Hash for Notification {
+    /// Compute a hash for the `Notification`
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.title.hash(state);
     }
 }
