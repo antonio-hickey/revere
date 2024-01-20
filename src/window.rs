@@ -1,5 +1,4 @@
-use std::ops::Deref;
-
+use crate::{config::WindowConfig, error::RevereError};
 use cairo::{Context, FontSlant, FontWeight, Format, ImageSurface};
 use smithay_client_toolkit::{
     reexports::{
@@ -19,8 +18,7 @@ use smithay_client_toolkit::{
     },
     shm::DoubleMemPool,
 };
-
-use crate::error::RevereError;
+use std::usize;
 
 pub struct NotificationWindow {
     layer_shell: Option<ZwlrLayerShellV1>,
@@ -35,7 +33,7 @@ pub struct NotificationWindow {
 }
 impl NotificationWindow {
     /// Create a new instance of `NotificationWindow`
-    pub fn new() -> Self {
+    pub fn new(config: &WindowConfig) -> Self {
         // Connect to wayland server getting a Display
         // then derive a EventQueue, and an attached Display
         let display = Display::connect_to_env().unwrap();
@@ -63,10 +61,14 @@ impl NotificationWindow {
         );
 
         // Configure the layer surface a bit and commit the changes
-        layer_surface.set_size(200, 100);
-        layer_surface
-            .set_anchor(zwlr_layer_surface_v1::Anchor::Top | zwlr_layer_surface_v1::Anchor::Right);
-        layer_surface.set_margin(10, 10, 0, 0);
+        layer_surface.set_size(config.size.width, config.size.height);
+        layer_surface.set_anchor(config.placement.x.as_anchor() | config.placement.y.as_anchor());
+        layer_surface.set_margin(
+            config.margin.top,
+            config.margin.right,
+            config.margin.bottom,
+            config.margin.left,
+        );
         layer_surface.quick_assign(move |layer_surface, event, _| {
             if let zwlr_layer_surface_v1::Event::Configure { serial, .. } = event {
                 layer_surface.ack_configure(serial);
@@ -98,20 +100,20 @@ impl NotificationWindow {
     /// Draws/renders the window using a wayland layer surface.
     // TODO: figure out lifetime and ownership problems so we can
     //       remove the unsafe block.
-    pub fn draw(&mut self, msg: &str) {
+    pub fn draw(&mut self, msg: &str, config: &WindowConfig) {
         if let Some(pool) = self.pools.pool() {
             // Resize the pool to the size of the surface
-            let width = 200;
-            let height = 100;
+            let width = config.size.width;
+            let height = config.size.height;
             let bytes_per_px = 4;
-            let size = width * height * bytes_per_px;
+            let size = (width * height * bytes_per_px) as usize;
             pool.resize(size).unwrap();
 
             // Do to lifetime and ownership complexities with creating a
             // cario surface buffer than can live long enough
             unsafe {
                 // Create a intermediate buffer to the size of the surface
-                let mut temp_buffer: Vec<u8> = vec![0; width * height * 4];
+                let mut temp_buffer: Vec<u8> = vec![0; size];
 
                 // Create a Cairo surface using the intermediate buffer
                 let surface = ImageSurface::create_for_data_unsafe(
@@ -125,12 +127,20 @@ impl NotificationWindow {
                 let cr = Context::new(&surface).expect("some surface");
 
                 // Perform cario drawing operations
-                cr.set_source_rgb(1.0, 1.0, 1.0); // White text
+                cr.set_source_rgb(
+                    config.color.bg.red,
+                    config.color.bg.green,
+                    config.color.bg.blue,
+                );
                 cr.paint().ok(); // Fill the background
-                cr.set_source_rgb(0.0, 0.0, 0.0); // Black text
+                cr.set_source_rgb(
+                    config.color.fg.red,
+                    config.color.fg.green,
+                    config.color.fg.blue,
+                );
                 cr.select_font_face("Sans", FontSlant::Normal, FontWeight::Normal);
-                cr.set_font_size(20.0);
-                cr.move_to(10.0, 50.0);
+                cr.set_font_size(config.font_size as f64);
+                cr.move_to(10.0, 50.0); // TODO: forgot wtf this does/is for lol
                 cr.show_text(msg).expect("Failed to draw text");
 
                 // Copy the Cairo surface data to the Wayland buffer

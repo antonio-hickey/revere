@@ -1,7 +1,9 @@
+mod config;
 mod error;
 mod notification;
 mod window;
 
+use config::Config;
 use dbus::{blocking::Connection, message::MatchRule};
 use error::RevereError;
 use notification::Notification;
@@ -19,11 +21,13 @@ use window::NotificationWindow;
 // notification using a window for a few seconds.
 //
 // TODO:
-//     * figure out how end users can config the GUI
 //     * figure out a default UI that looks nice
 //     * guess I can support XOrg as well
 
 pub fn main() -> Result<(), RevereError> {
+    // Find user config file or use default config
+    let config = Config::find();
+
     // Connect to the DBus session bus
     let bus_cnx = Connection::new_session()?;
 
@@ -52,16 +56,16 @@ pub fn main() -> Result<(), RevereError> {
             // Only display notifications with a title
             if let Some(title) = notification.title {
                 // Create a new mutable instance of `NotificationWindow`
-                let mut notification_window = NotificationWindow::new();
+                let mut notification_window = NotificationWindow::new(&config.window);
 
-                // Render the notification window for 3 seconds
+                // Render the notification window for some time duration (default: 3 seconds)
                 let start_time = Instant::now();
-                while start_time.elapsed() < Duration::from_secs(3) {
+                while start_time.elapsed() < Duration::from_secs(config.window.duration as u64) {
                     notification_window
                         .event_queue
                         .dispatch(&mut (), |_, _, _| {})
                         .unwrap();
-                    notification_window.draw(&title);
+                    notification_window.draw(&title, &config.window);
                 }
                 notification_window.flush_display().ok();
             }
