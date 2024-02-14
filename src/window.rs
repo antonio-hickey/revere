@@ -23,7 +23,7 @@ use smithay_client_toolkit::{
     },
     shm::DoubleMemPool,
 };
-use std::usize;
+use std::{fs::File, usize};
 
 pub struct NotificationWindow {
     layer_shell: Option<ZwlrLayerShellV1>,
@@ -105,7 +105,7 @@ impl NotificationWindow {
     /// Draws/renders the window using a wayland layer surface.
     // TODO: figure out lifetime and ownership problems so we can
     //       remove the unsafe block.
-    pub fn draw(&mut self, msg: &str, config: &WindowConfig) {
+    pub fn draw(&mut self, msg: &str, thumbnail: &mut Option<File>, config: &WindowConfig) {
         if let Some(pool) = self.pools.pool() {
             // Resize the pool to the size of the surface
             let width = config.size.width;
@@ -144,14 +144,34 @@ impl NotificationWindow {
                     config.color.fg.blue,
                 );
 
+                // Check if there's a thumbnail path provided and draw the PNG image
+                if let Some(thumbnail_file) = thumbnail {
+                    if let Ok(image_surface) = ImageSurface::create_from_png(thumbnail_file) {
+                        // Scale the image down by half
+                        image_surface.set_device_scale(2.0, 2.0);
+                        let scaled_width = (image_surface.width() as f64) * 0.5;
+                        let scaled_height = (image_surface.height() as f64) * 0.5;
+
+                        // Draw the image
+                        cr.set_source_surface(&image_surface, 0.0, 0.0);
+                        cr.paint().expect("Failed to draw PNG image");
+
+                        // Draw the image border
+                        cr.rectangle(0.0, 0.0, scaled_width, scaled_height);
+                        cr.set_source_rgba(0.0, 0.0, 0.0, 1.0);
+                        cr.set_line_width(4.0);
+                        cr.stroke();
+                    }
+                }
+
                 // Render the notification text
                 let layout = Self::create_pango_layout(
                     &cr,
                     msg,
                     config.font_size,
-                    (width as i32 - (config.margin.right + config.margin.left)) as u32,
+                    (width as i32 - 180) as u32,
                 );
-                cr.move_to(10.0, 10.0);
+                cr.move_to(180.0, 40.0);
                 pango_cairo::show_layout(&cr, &layout);
 
                 // Draw the window border
@@ -185,7 +205,7 @@ impl NotificationWindow {
                 // region, and finally commit the surface.
                 if let Some(surface) = &self.surface {
                     surface.attach(self.buffer.as_ref(), 0, 0);
-                    surface.damage(0, 0, width as i32, height as i32);
+                    //surface.damage(0, 0, width as i32, height as i32);
                     surface.commit();
                 }
             }
