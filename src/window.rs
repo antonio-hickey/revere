@@ -1,5 +1,7 @@
 use crate::{config::WindowConfig, error::RevereError};
-use cairo::{Context, FontSlant, FontWeight, Format, ImageSurface};
+use cairo::{Context, Format, ImageSurface};
+use pango::{FontDescription, Layout};
+use pangocairo::functions as pango_cairo;
 use smithay_client_toolkit::{
     reexports::{
         client::{
@@ -138,10 +140,16 @@ impl NotificationWindow {
                     config.color.fg.green,
                     config.color.fg.blue,
                 );
-                cr.select_font_face("Sans", FontSlant::Normal, FontWeight::Normal);
-                cr.set_font_size(config.font_size as f64);
-                cr.move_to(10.0, 50.0); // TODO: forgot wtf this does/is for lol
-                cr.show_text(msg).expect("Failed to draw text");
+
+                // Render the notification text
+                let layout = Self::create_pango_layout(
+                    &cr,
+                    msg,
+                    config.font_size,
+                    (width as i32 - (config.margin.right + config.margin.left)) as u32,
+                );
+                cr.move_to(10.0, 10.0);
+                pango_cairo::show_layout(&cr, &layout);
 
                 // Copy the Cairo surface data to the Wayland buffer
                 let mmap = pool.mmap();
@@ -192,5 +200,23 @@ impl NotificationWindow {
         self.display
             .flush()
             .map_err(|_| RevereError::DisplayFlushError)
+    }
+
+    /// Helper function to create a Pango layout for better text handeling like
+    /// absolute size, text wrapping, and other stuff I'm not currently leveraging
+    /// but may in the future like diff fonts, text alignment, and ellipsization.
+    fn create_pango_layout(cr: &Context, text: &str, font_size: u8, max_width: u32) -> Layout {
+        // Font stuff
+        let mut font = FontDescription::from_string(&format!("sans {}", font_size));
+        font.set_absolute_size(font_size as f64 * pango::SCALE as f64);
+
+        // Layout stuff
+        let layout = pango_cairo::create_layout(cr).expect("Cannot create pango layout");
+        layout.set_font_description(Some(&font));
+        layout.set_width(max_width as i32 * pango::SCALE);
+        layout.set_wrap(pango::WrapMode::Word);
+        layout.set_text(text);
+
+        layout
     }
 }
