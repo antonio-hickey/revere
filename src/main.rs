@@ -8,6 +8,7 @@ use dbus::{blocking::Connection, message::MatchRule};
 use error::RevereError;
 use notification::Notification;
 use std::{
+    fs::File,
     hash::{DefaultHasher, Hash, Hasher},
     result::Result,
     sync::Arc,
@@ -22,7 +23,6 @@ use window::NotificationWindow;
 //
 // TODO:
 //     * figure out a default UI that looks nice
-//     * support image thumbnails for some notifications
 //     * guess I can support XOrg as well
 
 pub fn main() -> Result<(), RevereError> {
@@ -56,6 +56,11 @@ pub fn main() -> Result<(), RevereError> {
         if notification_hash != last_notification_hash {
             // Only display notifications with a title
             if let Some(title) = notification.title {
+                let mut thumbnail = notification
+                    .image
+                    .as_ref()
+                    .and_then(|image| File::open(image).ok());
+
                 // Create a new mutable instance of `NotificationWindow`
                 let mut notification_window = NotificationWindow::new(&config.window);
 
@@ -66,7 +71,7 @@ pub fn main() -> Result<(), RevereError> {
                         .event_queue
                         .dispatch(&mut (), |_, _, _| {})
                         .unwrap();
-                    notification_window.draw(&title, &config.window);
+                    notification_window.draw(&title, &mut thumbnail, &config.window);
                 }
                 notification_window.flush_display().ok();
             }
