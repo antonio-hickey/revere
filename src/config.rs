@@ -43,6 +43,15 @@ impl Config {
                     bottom: 0,
                     left: 0,
                 },
+                border: WindowBorder {
+                    width: 8,
+                    color: Rgb {
+                        red: 0.0,
+                        green: 0.0,
+                        blue: 0.0,
+                    },
+                    alpha: 0.75,
+                },
                 color: WindowColor {
                     // White background
                     bg: Rgb {
@@ -75,6 +84,8 @@ pub struct WindowConfig {
     pub margin: WindowMargin,
     /// What colors for the window
     pub color: WindowColor,
+    /// The border for the window
+    pub border: WindowBorder,
     /// The window's text size
     /// Default = `15`
     pub font_size: u8,
@@ -140,6 +151,21 @@ pub struct WindowMargin {
     /// How much left margin (px)
     /// Default = `0`
     pub left: i32,
+}
+
+/// Window Size Configuration
+#[derive(Deserialize)]
+pub struct WindowBorder {
+    /// Border Width
+    /// Default = `8`
+    pub width: i32,
+    /// Border Color
+    /// Default = `Black`
+    #[serde(deserialize_with = "hex_to_rgb")]
+    pub color: Rgb,
+    /// Border Color Alpha (transparency / opacity)
+    /// Default = `0.75`
+    pub alpha: f64,
 }
 
 /// Window Color Configuration

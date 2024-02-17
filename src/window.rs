@@ -1,4 +1,7 @@
-use crate::{config::WindowConfig, error::RevereError};
+use crate::{
+    config::{self, WindowConfig},
+    error::RevereError,
+};
 use cairo::{Context, Format, ImageSurface};
 use pango::{FontDescription, Layout};
 use pangocairo::functions as pango_cairo;
@@ -150,6 +153,17 @@ impl NotificationWindow {
                 );
                 cr.move_to(10.0, 10.0);
                 pango_cairo::show_layout(&cr, &layout);
+
+                // Draw the window border
+                cr.rectangle(0.0, 0.0, width as f64, height as f64);
+                cr.set_source_rgba(
+                    config.border.color.red,
+                    config.border.color.green,
+                    config.border.color.blue,
+                    config.border.alpha,
+                );
+                cr.set_line_width(config.border.width as f64);
+                cr.stroke();
 
                 // Copy the Cairo surface data to the Wayland buffer
                 let mmap = pool.mmap();

@@ -17,11 +17,12 @@ use window::NotificationWindow;
 
 // Hacked up prototype to just set up a connection
 // with D-Bus, listen for all messages, and parse
-// them into a `Notification` and displaying the
-// notification using a window for a few seconds.
+// them into a `Notification` to display with a
+// notification window for a few seconds.
 //
 // TODO:
 //     * figure out a default UI that looks nice
+//     * support image thumbnails for some notifications
 //     * guess I can support XOrg as well
 
 pub fn main() -> Result<(), RevereError> {
