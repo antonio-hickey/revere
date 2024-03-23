@@ -35,7 +35,7 @@ impl Config {
                 },
                 size: WindowSize {
                     height: 100,
-                    width: 200,
+                    width: 350,
                 },
                 margin: WindowMargin {
                     top: 10,

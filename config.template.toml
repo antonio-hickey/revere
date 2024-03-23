@@ -1,0 +1,9 @@
+# The notification window 
+[window] 
+placement = { x = "Top", y = "Right" } # Where the window is placed 
+size = { height = 100, width = 350 }# How big the window is (HxW) 
+margin = { top = 10, right = 10, bottom = 0, left = 0 } # How much margin the window has 
+color = { bg = "#ffffff", fg = "#000000" } # The background and foreground (text) colors   
+border = { width = 8, color = "#000000", alpha = 0.75 } # The window border width and color 
+font_size = 15 # The window font size 
+duration = 3 # How long the window is displayed 
