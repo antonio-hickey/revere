@@ -18,7 +18,7 @@ impl From<&Message> for Notification {
     fn from(msg: &Message) -> Self {
         let kind = msg.msg_type();
         let path = msg.path().unwrap().to_string();
-        let (mut title, mut summary, mut image) = (None, None, None);
+        let (mut title, summary, mut image) = (None, None, None);
 
         // Parse out a title/action from a PropertiesChanged member message
         if msg.member().expect("some interface member").to_string() == *"PropertiesChanged" {

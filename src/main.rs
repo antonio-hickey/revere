@@ -10,7 +10,6 @@ use notification::Notification;
 use std::{
     fs::File,
     hash::{DefaultHasher, Hash, Hasher},
-    result::Result,
     sync::Arc,
     time::{Duration, Instant},
 };

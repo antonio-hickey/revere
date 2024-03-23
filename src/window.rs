@@ -1,7 +1,4 @@
-use crate::{
-    config::{self, WindowConfig},
-    error::RevereError,
-};
+use crate::{config::WindowConfig, error::RevereError};
 use cairo::{Context, Format, ImageSurface};
 use pango::{FontDescription, Layout};
 use pangocairo::functions as pango_cairo;
@@ -26,12 +23,12 @@ use smithay_client_toolkit::{
 use std::{fs::File, usize};
 
 pub struct NotificationWindow {
-    layer_shell: Option<ZwlrLayerShellV1>,
+    _layer_shell: Option<ZwlrLayerShellV1>,
     layer_surface: Option<ZwlrLayerSurfaceV1>,
     surface: Option<WlSurface>,
     buffer: Option<WlBuffer>,
-    compositor: Option<WlCompositor>,
-    shm: Option<WlShm>,
+    _compositor: Option<WlCompositor>,
+    _shm: Option<WlShm>,
     pools: DoubleMemPool,
     display: Display,
     pub event_queue: EventQueue,
@@ -90,11 +87,11 @@ impl NotificationWindow {
 
         // Return a instance of `NotificationWindow`
         Self {
-            layer_shell: Some(layer_shell.detach()),
+            _layer_shell: Some(layer_shell.detach()),
             layer_surface: Some(layer_surface.detach()),
             surface: Some(surface.detach()),
-            compositor: Some(compositor.detach()),
-            shm: Some(shm.detach()),
+            _compositor: Some(compositor.detach()),
+            _shm: Some(shm.detach()),
             buffer: None,
             display,
             event_queue,
@@ -153,14 +150,18 @@ impl NotificationWindow {
                         let scaled_height = (image_surface.height() as f64) * 0.5;
 
                         // Draw the image
-                        cr.set_source_surface(&image_surface, 0.0, 0.0);
+                        if let Err(e) = cr.set_source_surface(&image_surface, 0.0, 0.0) {
+                            eprintln!("{e:?}");
+                        }
                         cr.paint().expect("Failed to draw PNG image");
 
                         // Draw the image border
                         cr.rectangle(0.0, 0.0, scaled_width, scaled_height);
                         cr.set_source_rgba(0.0, 0.0, 0.0, 1.0);
                         cr.set_line_width(4.0);
-                        cr.stroke();
+                        if let Err(e) = cr.stroke() {
+                            eprintln!("{e:?}");
+                        }
                     }
                 }
 
@@ -183,7 +184,9 @@ impl NotificationWindow {
                     config.border.alpha,
                 );
                 cr.set_line_width(config.border.width as f64);
-                cr.stroke();
+                if let Err(e) = cr.stroke() {
+                    eprintln!("{e:?}");
+                }
 
                 // Copy the Cairo surface data to the Wayland buffer
                 let mmap = pool.mmap();
