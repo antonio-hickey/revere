@@ -35,23 +35,21 @@ pub struct NotificationWindow {
 }
 impl NotificationWindow {
     /// Create a new instance of `NotificationWindow`
-    pub fn new(config: &WindowConfig) -> Self {
+    pub fn try_new(config: &WindowConfig) -> Result<Self, RevereError> {
         // Connect to wayland server getting a Display
         // then derive a EventQueue, and an attached Display
-        let display = Display::connect_to_env().unwrap();
+        let display = Display::connect_to_env()?;
         let mut event_queue = display.create_event_queue();
         let attached_display = (*display).clone().attach(event_queue.token());
 
         // Instantiate wayland globals
         let globals = GlobalManager::new(&attached_display);
-        event_queue.sync_roundtrip(&mut (), |_, _, _| {}).unwrap();
+        event_queue.sync_roundtrip(&mut (), |_, _, _| {})?;
         let compositor = globals
-            .instantiate_exact::<wl_compositor::WlCompositor>(1)
-            .unwrap();
-        let shm = globals.instantiate_exact::<WlShm>(1).unwrap();
+            .instantiate_exact::<wl_compositor::WlCompositor>(1)?;
+        let shm = globals.instantiate_exact::<WlShm>(1)?;
         let layer_shell = globals
-            .instantiate_exact::<zwlr_layer_shell_v1::ZwlrLayerShellV1>(1)
-            .unwrap();
+            .instantiate_exact::<zwlr_layer_shell_v1::ZwlrLayerShellV1>(1)?;
 
         // Derive a surface and layer surface from the server
         let surface = compositor.create_surface();
@@ -82,11 +80,10 @@ impl NotificationWindow {
         let pools = DoubleMemPool::new(
             shm.clone().into(),
             |_: smithay_client_toolkit::reexports::client::DispatchData| {},
-        )
-        .expect("Failed to create memory pool");
+        )?;
 
         // Return a instance of `NotificationWindow`
-        Self {
+        let window = Self {
             _layer_shell: Some(layer_shell.detach()),
             layer_surface: Some(layer_surface.detach()),
             surface: Some(surface.detach()),
@@ -96,7 +93,9 @@ impl NotificationWindow {
             display,
             event_queue,
             pools,
-        }
+        };
+
+        Ok(window)
     }
 
     /// Draws/renders the window using a wayland layer surface.

@@ -21,6 +21,8 @@ use window::NotificationWindow;
 // notification window for a few seconds.
 //
 // TODO:
+//     * Fix the issue of youtube notifications showing 
+//       without thumbnail first time.
 //     * figure out a default UI that looks nice
 //     * guess I can support XOrg as well
 
@@ -61,7 +63,8 @@ pub fn main() -> Result<(), RevereError> {
                     .and_then(|image| File::open(image).ok());
 
                 // Create a new mutable instance of `NotificationWindow`
-                let mut notification_window = NotificationWindow::new(&config.window);
+                let mut notification_window = NotificationWindow::try_new(&config.window)
+                    .expect("Failed to crate notification window");
 
                 // Render the notification window for some time duration (default: 3 seconds)
                 let start_time = Instant::now();
