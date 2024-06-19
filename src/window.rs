@@ -20,7 +20,7 @@ use smithay_client_toolkit::{
     },
     shm::DoubleMemPool,
 };
-use std::{fs::File, usize};
+use std::fs::File;
 
 pub struct NotificationWindow {
     _layer_shell: Option<ZwlrLayerShellV1>,
@@ -45,11 +45,9 @@ impl NotificationWindow {
         // Instantiate wayland globals
         let globals = GlobalManager::new(&attached_display);
         event_queue.sync_roundtrip(&mut (), |_, _, _| {})?;
-        let compositor = globals
-            .instantiate_exact::<wl_compositor::WlCompositor>(1)?;
+        let compositor = globals.instantiate_exact::<wl_compositor::WlCompositor>(1)?;
         let shm = globals.instantiate_exact::<WlShm>(1)?;
-        let layer_shell = globals
-            .instantiate_exact::<zwlr_layer_shell_v1::ZwlrLayerShellV1>(1)?;
+        let layer_shell = globals.instantiate_exact::<zwlr_layer_shell_v1::ZwlrLayerShellV1>(1)?;
 
         // Derive a surface and layer surface from the server
         let surface = compositor.create_surface();
@@ -99,9 +97,12 @@ impl NotificationWindow {
     }
 
     /// Draws/renders the window using a wayland layer surface.
-    // TODO: figure out lifetime and ownership problems so we can
-    //       remove the unsafe block.
-    pub fn draw(&mut self, msg: &str, thumbnail: &mut Option<File>, config: &WindowConfig) {
+    pub fn draw(
+        &mut self,
+        msg: &str,
+        thumbnail: &mut Option<File>,
+        config: &WindowConfig,
+    ) -> Result<(), RevereError> {
         if let Some(pool) = self.pools.pool() {
             // Resize the pool to the size of the surface
             let width = config.size.width;
@@ -110,21 +111,21 @@ impl NotificationWindow {
             let size = (width * height * bytes_per_px) as usize;
             pool.resize(size).unwrap();
 
-            // Do to lifetime and ownership complexities with creating a
-            // cario surface buffer than can live long enough
-            unsafe {
-                // Create a intermediate buffer to the size of the surface
-                let mut temp_buffer: Vec<u8> = vec![0; size];
+            // Create a intermediate buffer to the size of the surface
+            let temp_buffer: Vec<u8> = vec![0; size];
 
-                // Create a Cairo surface using the intermediate buffer
-                let surface = ImageSurface::create_for_data_unsafe(
-                    temp_buffer.as_mut_ptr(),
-                    Format::ARgb32,
-                    width as i32,
-                    height as i32,
-                    (width * bytes_per_px) as i32,
-                )
-                .expect("Failed to create Cairo surface");
+            // Create a Cairo surface using the intermediate buffer
+            let mut surface = ImageSurface::create_for_data(
+                temp_buffer,
+                Format::ARgb32,
+                width as i32,
+                height as i32,
+                (width * bytes_per_px) as i32,
+            )?;
+
+            // Handle the cairo surface context in a localized scope
+            // to avoid any kind of ownership issues with the surface
+            {
                 let cr = Context::new(&surface).expect("some surface");
 
                 // Perform cario drawing operations
@@ -186,32 +187,36 @@ impl NotificationWindow {
                 if let Err(e) = cr.stroke() {
                     eprintln!("{e:?}");
                 }
+            }
 
-                // Copy the Cairo surface data to the Wayland buffer
-                let mmap = pool.mmap();
-                for (i, byte) in mmap.iter_mut().enumerate() {
-                    *byte = temp_buffer[i];
-                }
-
-                // Create a buffer from the memory pool for rendering the window
-                self.buffer = Some(pool.buffer(
-                    0,
-                    width as i32,
-                    height as i32,
-                    (width * bytes_per_px) as i32,
-                    WlFormat::Argb8888,
-                ));
-
-                // Attach the buffer to the wayland surface, then damage the
-                // surface to signal to wayland server to redraw (update) a surface
-                // region, and finally commit the surface.
-                if let Some(surface) = &self.surface {
-                    surface.attach(self.buffer.as_ref(), 0, 0);
-                    //surface.damage(0, 0, width as i32, height as i32);
-                    surface.commit();
+            // Copy the Cairo surface data to the Wayland buffer
+            let mmap = pool.mmap();
+            for (i, byte) in mmap.iter_mut().enumerate() {
+                if let Some(surface_data_byte) = surface.data()?.get(i) {
+                    *byte = *surface_data_byte;
                 }
             }
+
+            // Create a buffer from the memory pool for rendering the window
+            self.buffer = Some(pool.buffer(
+                0,
+                width as i32,
+                height as i32,
+                (width * bytes_per_px) as i32,
+                WlFormat::Argb8888,
+            ));
+
+            // Attach the buffer to the wayland surface, then damage the
+            // surface to signal to wayland server to redraw (update) a surface
+            // region, and finally commit the surface.
+            if let Some(surface) = &self.surface {
+                surface.attach(self.buffer.as_ref(), 0, 0);
+                //surface.damage(0, 0, width as i32, height as i32);
+                surface.commit();
+            }
         }
+
+        Ok(())
     }
 
     /// Flush the internal display buffer to the server socket.
