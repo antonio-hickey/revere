@@ -1,72 +1,114 @@
-use dbus::arg::{self, PropMap, RefArg, Variant};
-use dbus::message::MessageType;
-use dbus::Message;
-use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
+use dbus::{
+    arg::{self, PropMap, RefArg, Variant},
+    message::MessageType,
+    Message,
+};
+use std::{
+    collections::HashMap,
+    hash::{Hash, Hasher},
+};
 
 /// The Revere Notification type
 #[derive(Debug)]
 pub struct Notification {
     pub kind: MessageType,
-    pub path: String,
-    pub title: Option<String>,
+    pub method: String,
+    pub sender: String,
+    pub destination: String,
+    pub serial: Option<u32>,
+    pub app_name: String,
+    pub id: u64,
+    pub icon: Option<String>,
     pub summary: Option<String>,
-    pub image: Option<String>,
+    pub body: Option<String>,
+    pub _actions: Vec<String>,
+    pub _hints: HashMap<String, Variant<Box<dyn RefArg>>>,
 }
 impl From<&Message> for Notification {
     /// Implement DBus Message conversion into a Notification
     fn from(msg: &Message) -> Self {
         let kind = msg.msg_type();
-        let path = msg.path().unwrap().to_string();
-        let (mut title, summary, mut image) = (None, None, None);
+        let method = msg.member().map(|m| m.to_string()).unwrap_or_default();
+        let sender = msg.sender().map(|s| s.to_string()).unwrap_or_default();
+        let destination = msg.destination().map(|d| d.to_string()).unwrap_or_default();
+        let serial = msg.get_serial();
 
-        // Parse out a title/action from a PropertiesChanged member message
-        if msg.member().expect("some interface member").to_string() == *"PropertiesChanged" {
-            // Iterate over the message arguments
-            let mut iter = msg.iter_init();
-            // Skip the first iteration
-            iter.next();
+        let mut app_name = String::new();
+        let mut id = 0u64;
+        let mut icon = None;
+        let mut summary = None;
+        let mut body = None;
+        let mut actions = Vec::new();
+        let mut hints = HashMap::new();
 
-            // Parse the D-BUS Message arguments into a hashmap
-            let msg_args_hashmap: HashMap<String, Variant<Box<dyn RefArg>>> = iter.read().unwrap();
+        let mut iter = msg.iter_init();
 
-            // If args have "Metadata" then grab some data, else none
-            // this works for like displaying whats playing on youtube
-            // for example. Need to look into how much variance there is
-            // between all the different messages I want to display.
-            if msg_args_hashmap.contains_key("Metadata") {
-                let metadata_variant = msg_args_hashmap.get("Metadata").expect("metadata key");
-                let variant = &metadata_variant.0;
-                let map: &PropMap = arg::cast(variant).unwrap();
+        if let Some(app_name_arg) = iter.get::<String>() {
+            app_name = app_name_arg;
+        }
+        iter.next();
 
-                title = Some(
-                    map.get("xesam:title")
-                        .expect("some title")
-                        .as_str()
-                        .expect("a string")
-                        .to_owned(),
-                );
+        if let Some(id_arg) = iter.get::<u64>() {
+            id = id_arg;
+        }
+        iter.next();
 
-                image = map
-                    .get("mpris:artUrl")
-                    .map(|value| value.as_str())
-                    .and_then(|value| value.map(|s| s.to_owned().replace("file://", "")));
+        if let Some(icon_arg) = iter.get::<String>() {
+            icon = Some(icon_arg);
+        }
+        iter.next();
+
+        if let Some(summary_arg) = iter.get::<String>() {
+            summary = Some(summary_arg);
+        }
+        iter.next();
+
+        if let Some(body_arg) = iter.get::<String>() {
+            body = Some(body_arg);
+        }
+        iter.next();
+
+        if let Some(actions_arg) = iter.get::<Vec<String>>() {
+            actions = actions_arg;
+        }
+        iter.next();
+
+        if let Some(hints_arg) = iter.get::<Variant<Box<dyn RefArg>>>() {
+            if let Some(hint_map) = hints_arg.0.as_iter() {
+                for entry in hint_map {
+                    // Try to downcast each key value pair
+                    if let Some((key, value)) = entry.as_iter().and_then(|mut inner| {
+                        let key = inner.next()?.as_str()?;
+                        let value = inner.next()?.box_clone();
+                        Some((key.to_string(), Variant(value)))
+                    }) {
+                        hints.insert(key, value);
+                    }
+                }
             }
         }
 
         Notification {
             kind,
-            path,
-            title,
+            method,
+            sender,
+            destination,
+            serial,
+            app_name,
+            id,
+            icon,
             summary,
-            image,
+            body,
+            _actions: actions,
+            _hints: hints,
         }
     }
 }
 impl Hash for Notification {
     /// Compute a hash for the `Notification`
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.title.hash(state);
-        self.image.hash(state);
+        self.id.hash(state);
+        self.summary.hash(state);
+        self.icon.hash(state);
     }
 }
