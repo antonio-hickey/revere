@@ -99,7 +99,8 @@ impl NotificationWindow {
     /// Draws/renders the window using a wayland layer surface.
     pub fn draw(
         &mut self,
-        msg: &str,
+        title: &str,
+        body: &str,
         thumbnail: &mut Option<File>,
         config: &WindowConfig,
     ) -> Result<(), RevereError> {
@@ -165,15 +166,22 @@ impl NotificationWindow {
                     }
                 }
 
-                // Render the notification text
-                let layout = Self::create_pango_layout(
+                // Render the notification title
+                let title_layout = Self::create_pango_layout(
                     &cr,
-                    msg,
+                    title,
                     config.font_size,
                     (width as i32 - 180) as u32,
                 );
                 cr.move_to(180.0, 40.0);
-                pango_cairo::show_layout(&cr, &layout);
+                pango_cairo::show_layout(&cr, &title_layout);
+                let (_, title_height) = title_layout.pixel_size();
+
+                // Render the notification body
+                let body_layout =
+                    Self::create_pango_layout(&cr, body, config.font_size, width - 180);
+                cr.move_to(180.0, 15.0 + title_height as f64 + 5.0);
+                pango_cairo::show_layout(&cr, &body_layout);
 
                 // Draw the window border
                 cr.rectangle(0.0, 0.0, width as f64, height as f64);

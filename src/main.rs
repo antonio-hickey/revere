@@ -101,6 +101,7 @@ fn handle_notify(msg: &Message, config: &Config) -> Message {
         // Try to render the notification window
         if let Err(e) = notification_window.draw(
             &notification.summary.clone().unwrap_or_default(),
+            &notification.body.clone().unwrap_or_default(),
             &mut icon,
             &config.window,
         ) {
