@@ -167,13 +167,18 @@ impl NotificationWindow {
                 }
 
                 // Render the notification title
-                let title_layout = Self::create_pango_layout(
-                    &cr,
-                    title,
-                    config.font_size,
-                    (width as i32 - 180) as u32,
-                );
-                cr.move_to(180.0, 40.0);
+                let title_layout =
+                    Self::create_pango_layout(&cr, title, config.font_size, width - 180);
+
+                // Add text effect attributes to the title (bold, underline)
+                let attributes = pango::AttrList::new();
+                let bold = pango::Attribute::new_weight(pango::Weight::Bold);
+                attributes.insert(bold);
+                let underline = pango::Attribute::new_underline(pango::Underline::Single);
+                attributes.insert(underline);
+
+                title_layout.set_attributes(Some(&attributes));
+                cr.move_to(180.0, 15.0);
                 pango_cairo::show_layout(&cr, &title_layout);
                 let (_, title_height) = title_layout.pixel_size();
 
