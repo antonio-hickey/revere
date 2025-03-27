@@ -27,6 +27,9 @@ use window::NotificationWindow;
 //     * figure out a default UI that looks nice
 //     * guess I can support XOrg as well
 
+/// The default notification icon for Revere
+static DEFAULT_ICON_PNG: &[u8] = include_bytes!("../assets/notification-icon.png");
+
 pub fn main() -> Result<(), RevereError> {
     // Find user config file or use default config
     let config = Config::find();
@@ -81,7 +84,13 @@ fn handle_notify(msg: &Message, config: &Config) -> Message {
     let mut icon = notification
         .icon
         .as_ref()
-        .and_then(|image| File::open(image).ok());
+        .and_then(|image| File::open(image).ok())
+        .map(|f| Box::new(f) as Box<dyn std::io::Read>)
+        .or_else(|| {
+            // No thumbnail or notification icon provided
+            // so use the default revere notification icon
+            Some(Box::new(std::io::Cursor::new(DEFAULT_ICON_PNG)) as Box<dyn std::io::Read>)
+        });
 
     // Create a new mutable instance of `NotificationWindow`
     let mut notification_window =

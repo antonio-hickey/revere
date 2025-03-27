@@ -20,7 +20,6 @@ use smithay_client_toolkit::{
     },
     shm::DoubleMemPool,
 };
-use std::fs::File;
 
 pub struct NotificationWindow {
     _layer_shell: Option<ZwlrLayerShellV1>,
@@ -101,7 +100,7 @@ impl NotificationWindow {
         &mut self,
         title: &str,
         body: &str,
-        thumbnail: &mut Option<File>,
+        image: &mut Option<Box<dyn std::io::Read>>,
         config: &WindowConfig,
     ) -> Result<(), RevereError> {
         if let Some(pool) = self.pools.pool() {
@@ -142,28 +141,38 @@ impl NotificationWindow {
                     config.color.fg.blue,
                 );
 
-                // Check if there's a thumbnail path provided and draw the PNG image
-                if let Some(thumbnail_file) = thumbnail {
-                    if let Ok(image_surface) = ImageSurface::create_from_png(thumbnail_file) {
-                        // Scale the image down by half
-                        image_surface.set_device_scale(2.0, 2.0);
-                        let scaled_width = (image_surface.width() as f64) * 0.5;
-                        let scaled_height = (image_surface.height() as f64) * 0.5;
+                // Check if there's an image provided and draw the image
+                //
+                // TODO: The calculation's should really be more dynamic on the user's
+                // config as they will have different size dimensions set than the default.
+                //
+                // TODO: Treat the default notification icon differently from than say a
+                // youtube thumbnail image that may come on a notification.
+                if let Some(img) = image {
+                    // Create an image surface of the raw image
+                    let raw_img_surface = ImageSurface::create_from_png(img)?;
 
-                        // Draw the image
-                        if let Err(e) = cr.set_source_surface(&image_surface, 0.0, 0.0) {
-                            eprintln!("{e:?}");
-                        }
-                        cr.paint().expect("Failed to draw PNG image");
+                    // Create a scaled image surfaced (scaled down by half)
+                    let scaled_width = ((raw_img_surface.width() as f64) * 0.5) as i32;
+                    let scaled_height = ((raw_img_surface.height() as f64) * 0.5) as i32;
+                    let scaled_img_surface =
+                        ImageSurface::create(Format::ARgb32, scaled_width, scaled_height)?;
 
-                        // Draw the image border
-                        cr.rectangle(0.0, 0.0, scaled_width, scaled_height);
-                        cr.set_source_rgba(0.0, 0.0, 0.0, 1.0);
-                        cr.set_line_width(4.0);
-                        if let Err(e) = cr.stroke() {
-                            eprintln!("{e:?}");
-                        }
-                    }
+                    // Render the image within the scaled down context
+                    let img_ctx = Context::new(&scaled_img_surface)?;
+                    img_ctx.scale(0.5, 0.5);
+                    img_ctx.set_source_surface(&raw_img_surface, 0.0, 0.0)?;
+                    img_ctx.paint()?;
+
+                    // Render the scaled down image within the main window surface
+                    cr.set_source_surface(&scaled_img_surface, 12.0, 15.0)?;
+                    cr.paint()?;
+
+                    // Draw the image border
+                    cr.rectangle(0.0, 0.0, scaled_width as f64 + 25.0, height as f64);
+                    cr.set_source_rgba(0.0, 0.0, 0.0, 1.0);
+                    cr.set_line_width(4.0);
+                    cr.stroke()?;
                 }
 
                 // Render the notification title

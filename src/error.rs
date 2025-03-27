@@ -11,6 +11,7 @@ pub enum RevereError {
     WaylandGlobalError(smithay_client_toolkit::reexports::client::GlobalError),
     CairoSurfaceError(cairo::Error),
     CairoBorrowError(cairo::BorrowError),
+    CairoIoError(cairo::IoError),
 }
 impl RevereError {
     pub fn message(&self) -> String {
@@ -27,6 +28,9 @@ impl RevereError {
             Self::CairoSurfaceError(e) => format!("Error: issue with cairo surface\n{:?}", e),
             Self::CairoBorrowError(e) => {
                 format!("Error: issue with cairo surface data ownership\n{:?}", e)
+            }
+            Self::CairoIoError(e) => {
+                format!("Error: issue with cairo io\n:{e:?}")
             }
         }
     }
@@ -77,5 +81,11 @@ impl From<cairo::Error> for RevereError {
 impl From<cairo::BorrowError> for RevereError {
     fn from(err: cairo::BorrowError) -> RevereError {
         RevereError::CairoBorrowError(err)
+    }
+}
+/// Implement error conversion (`cairo::IoError` -> `RevereError`)
+impl From<cairo::IoError> for RevereError {
+    fn from(err: cairo::IoError) -> RevereError {
+        RevereError::CairoIoError(err)
     }
 }
