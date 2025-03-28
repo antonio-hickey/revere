@@ -100,7 +100,7 @@ impl NotificationWindow {
         &mut self,
         title: &str,
         body: &str,
-        image: &mut Option<Box<dyn std::io::Read>>,
+        image_surface: &ImageSurface,
         config: &WindowConfig,
     ) -> Result<(), RevereError> {
         if let Some(pool) = self.pools.pool() {
@@ -141,39 +141,15 @@ impl NotificationWindow {
                     config.color.fg.blue,
                 );
 
-                // Check if there's an image provided and draw the image
-                //
-                // TODO: The calculation's should really be more dynamic on the user's
-                // config as they will have different size dimensions set than the default.
-                //
-                // TODO: Treat the default notification icon differently from than say a
-                // youtube thumbnail image that may come on a notification.
-                if let Some(img) = image {
-                    // Create an image surface of the raw image
-                    let raw_img_surface = ImageSurface::create_from_png(img)?;
+                // Render the scaled down image within the main window surface
+                cr.set_source_surface(image_surface, 12.0, 15.0)?;
+                cr.paint()?;
 
-                    // Create a scaled image surfaced (scaled down by half)
-                    let scaled_width = ((raw_img_surface.width() as f64) * 0.5) as i32;
-                    let scaled_height = ((raw_img_surface.height() as f64) * 0.5) as i32;
-                    let scaled_img_surface =
-                        ImageSurface::create(Format::ARgb32, scaled_width, scaled_height)?;
-
-                    // Render the image within the scaled down context
-                    let img_ctx = Context::new(&scaled_img_surface)?;
-                    img_ctx.scale(0.5, 0.5);
-                    img_ctx.set_source_surface(&raw_img_surface, 0.0, 0.0)?;
-                    img_ctx.paint()?;
-
-                    // Render the scaled down image within the main window surface
-                    cr.set_source_surface(&scaled_img_surface, 12.0, 15.0)?;
-                    cr.paint()?;
-
-                    // Draw the image border
-                    cr.rectangle(0.0, 0.0, scaled_width as f64 + 25.0, height as f64);
-                    cr.set_source_rgba(0.0, 0.0, 0.0, 1.0);
-                    cr.set_line_width(4.0);
-                    cr.stroke()?;
-                }
+                // Draw the image border
+                cr.rectangle(0.0, 0.0, image_surface.width() as f64 + 25.0, height as f64);
+                cr.set_source_rgba(0.0, 0.0, 0.0, 1.0);
+                cr.set_line_width(4.0);
+                cr.stroke()?;
 
                 // Render the notification title
                 let title_layout =
@@ -233,7 +209,7 @@ impl NotificationWindow {
             // region, and finally commit the surface.
             if let Some(surface) = &self.surface {
                 surface.attach(self.buffer.as_ref(), 0, 0);
-                //surface.damage(0, 0, width as i32, height as i32);
+                surface.damage(0, 0, width as i32, height as i32);
                 surface.commit();
             }
         }
@@ -263,6 +239,35 @@ impl NotificationWindow {
         self.display
             .flush()
             .map_err(|_| RevereError::DisplayFlushError)
+    }
+
+    /// Create an image surface.
+    ///
+    /// NOTE: The image is scaled down by half.
+    ///
+    /// TODO: The calculation's should really be more dynamic on the user's
+    /// config as they will have different size dimensions set than the default.
+    ///
+    /// TODO: Treat the default notification icon differently from than say a
+    /// youtube thumbnail image that may come on a notification.
+    pub fn create_image_surface(
+        mut image: Box<dyn std::io::Read>,
+    ) -> Result<ImageSurface, RevereError> {
+        // Create an image surface of the raw image
+        let raw_img_surface = ImageSurface::create_from_png(&mut image)?;
+
+        // Create a scaled image surfaced (scaled down by half)
+        let scaled_width = ((raw_img_surface.width() as f64) * 0.5) as i32;
+        let scaled_height = ((raw_img_surface.height() as f64) * 0.5) as i32;
+        let scaled_img_surface = ImageSurface::create(Format::ARgb32, scaled_width, scaled_height)?;
+
+        // Render the image within the scaled down context
+        let img_ctx = Context::new(&scaled_img_surface)?;
+        img_ctx.scale(0.5, 0.5);
+        img_ctx.set_source_surface(&raw_img_surface, 0.0, 0.0)?;
+        img_ctx.paint()?;
+
+        Ok(scaled_img_surface)
     }
 
     /// Helper function to create a Pango layout for better text handeling like

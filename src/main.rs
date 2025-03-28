@@ -81,16 +81,20 @@ fn handle_notify(msg: &Message, config: &Config) -> Message {
     let notification = Notification::from(msg);
 
     // Extract the icon image from the notification
-    let mut icon = notification
+    let icon = notification
         .icon
         .as_ref()
         .and_then(|image| File::open(image).ok())
         .map(|f| Box::new(f) as Box<dyn std::io::Read>)
-        .or_else(|| {
+        .unwrap_or_else(|| {
             // No thumbnail or notification icon provided
             // so use the default revere notification icon
-            Some(Box::new(std::io::Cursor::new(DEFAULT_ICON_PNG)) as Box<dyn std::io::Read>)
+            Box::new(std::io::Cursor::new(DEFAULT_ICON_PNG)) as Box<dyn std::io::Read>
         });
+
+    // Create an Image Surface for the notification icon
+    let image_surface =
+        NotificationWindow::create_image_surface(icon).expect("Failed to create image surface");
 
     // Create a new mutable instance of `NotificationWindow`
     let mut notification_window =
@@ -111,7 +115,7 @@ fn handle_notify(msg: &Message, config: &Config) -> Message {
         if let Err(e) = notification_window.draw(
             &notification.summary.clone().unwrap_or_default(),
             &notification.body.clone().unwrap_or_default(),
-            &mut icon,
+            &image_surface,
             &config.window,
         ) {
             eprintln!("Error drawing notification window: {e:?}");
