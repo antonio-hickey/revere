@@ -22,7 +22,7 @@ use smithay_client_toolkit::{
 };
 
 pub struct NotificationWindow {
-    _layer_shell: Option<ZwlrLayerShellV1>,
+    layer_shell: Option<ZwlrLayerShellV1>,
     layer_surface: Option<ZwlrLayerSurfaceV1>,
     surface: Option<WlSurface>,
     buffer: Option<WlBuffer>,
@@ -46,7 +46,15 @@ impl NotificationWindow {
         event_queue.sync_roundtrip(&mut (), |_, _, _| {})?;
         let compositor = globals.instantiate_exact::<wl_compositor::WlCompositor>(1)?;
         let shm = globals.instantiate_exact::<WlShm>(1)?;
-        let layer_shell = globals.instantiate_exact::<zwlr_layer_shell_v1::ZwlrLayerShellV1>(1)?;
+        let version = globals
+            .list()
+            .iter()
+            .filter(|(_, iface, _)| iface == "zwlr_layer_shell_v1")
+            .map(|&(_, _, v)| v)
+            .max()
+            .and_then(|v| if v >= 3 { Some(3) } else { Some(1) })
+            .unwrap_or(1);
+        let layer_shell = globals.instantiate_exact::<ZwlrLayerShellV1>(version)?;
 
         // Derive a surface and layer surface from the server
         let surface = compositor.create_surface();
@@ -81,7 +89,7 @@ impl NotificationWindow {
 
         // Return a instance of `NotificationWindow`
         let window = Self {
-            _layer_shell: Some(layer_shell.detach()),
+            layer_shell: Some(layer_shell.detach()),
             layer_surface: Some(layer_surface.detach()),
             surface: Some(surface.detach()),
             _compositor: Some(compositor.detach()),
@@ -220,19 +228,29 @@ impl NotificationWindow {
     /// Flush the internal display buffer to the server socket.
     ///
     /// Non - blocking: If not all the requests could be written
-    /// then returns RevereError::DisplayFlushError
+    /// then returns RevereError::DisplayFlushError.
+    ///
+    /// NOTE: Wayland will throw a warning of the event queue being
+    /// destroyed while some proxies were still attached. This is by
+    /// design (not a memory leak), the registry, compositor, and shm
+    /// need to stay alive for the entire lifecycle of the connection.
     pub fn flush_display(&mut self) -> Result<(), RevereError> {
         // Destroy all the proxies attached to the event queue
         // before flushing the display, this is to clean up the
         // unsafe code block in `draw()` ensuring all memory safety.
-        if let Some(surface) = &self.surface {
-            surface.destroy();
+        if let Some(buffer) = self.buffer.take() {
+            buffer.destroy();
         }
-        if let Some(layer_surface) = &self.layer_surface {
+        if let Some(layer_surface) = self.layer_surface.take() {
             layer_surface.destroy();
         }
-        if let Some(buffer) = &self.buffer {
-            buffer.destroy();
+        if let Some(surface) = self.surface.take() {
+            surface.destroy();
+        }
+        if let Some(layer_shell) = self.layer_shell.take() {
+            if layer_shell.as_ref().version() >= 3 {
+                layer_shell.destroy();
+            }
         }
 
         // Flush the display
