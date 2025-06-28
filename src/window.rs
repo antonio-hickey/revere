@@ -1,4 +1,4 @@
-use crate::{config::WindowConfig, error::RevereError};
+use crate::{config::WindowConfig, error::Error};
 use cairo::{Context, Format, ImageSurface};
 use pango::{FontDescription, Layout};
 use pangocairo::functions as pango_cairo;
@@ -34,7 +34,7 @@ pub struct NotificationWindow {
 }
 impl NotificationWindow {
     /// Create a new instance of `NotificationWindow`
-    pub fn try_new(config: &WindowConfig) -> Result<Self, RevereError> {
+    pub fn try_new(config: &WindowConfig) -> Result<Self, Error> {
         // Connect to wayland server getting a Display
         // then derive a EventQueue, and an attached Display
         let display = Display::connect_to_env()?;
@@ -110,7 +110,7 @@ impl NotificationWindow {
         body: &str,
         image_surface: &ImageSurface,
         config: &WindowConfig,
-    ) -> Result<(), RevereError> {
+    ) -> Result<(), Error> {
         if let Some(pool) = self.pools.pool() {
             // Resize the pool to the size of the surface
             let width = config.size.width;
@@ -228,13 +228,13 @@ impl NotificationWindow {
     /// Flush the internal display buffer to the server socket.
     ///
     /// Non - blocking: If not all the requests could be written
-    /// then returns RevereError::DisplayFlushError.
+    /// then returns Error::DisplayFlushError.
     ///
     /// NOTE: Wayland will throw a warning of the event queue being
     /// destroyed while some proxies were still attached. This is by
     /// design (not a memory leak), the registry, compositor, and shm
     /// need to stay alive for the entire lifecycle of the connection.
-    pub fn flush_display(&mut self) -> Result<(), RevereError> {
+    pub fn flush_display(&mut self) -> Result<(), Error> {
         // Destroy all the proxies attached to the event queue
         // before flushing the display, this is to clean up the
         // unsafe code block in `draw()` ensuring all memory safety.
@@ -254,9 +254,7 @@ impl NotificationWindow {
         }
 
         // Flush the display
-        self.display
-            .flush()
-            .map_err(|_| RevereError::DisplayFlushError)
+        self.display.flush().map_err(|_| Error::DisplayFlushError)
     }
 
     /// Create an image surface.
@@ -268,9 +266,7 @@ impl NotificationWindow {
     ///
     /// TODO: Treat the default notification icon differently from than say a
     /// youtube thumbnail image that may come on a notification.
-    pub fn create_image_surface(
-        mut image: Box<dyn std::io::Read>,
-    ) -> Result<ImageSurface, RevereError> {
+    pub fn create_image_surface(mut image: Box<dyn std::io::Read>) -> Result<ImageSurface, Error> {
         // Create an image surface of the raw image
         let raw_img_surface = ImageSurface::create_from_png(&mut image)?;
 

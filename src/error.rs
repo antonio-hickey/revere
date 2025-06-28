@@ -1,7 +1,7 @@
 use std::fmt;
 
 #[derive(Debug)]
-pub enum RevereError {
+pub enum Error {
     FailedToWriteUpdated,
     DisplayFlushError,
     StdIoError(std::io::Error),
@@ -13,7 +13,7 @@ pub enum RevereError {
     CairoBorrowError(cairo::BorrowError),
     CairoIoError(cairo::IoError),
 }
-impl RevereError {
+impl Error {
     pub fn message(&self) -> String {
         match self {
             Self::FailedToWriteUpdated => String::from("Forgot what this is"),
@@ -35,57 +35,57 @@ impl RevereError {
         }
     }
 }
-/// Implement display trait for RevereError
-impl fmt::Display for RevereError {
+/// Implement display trait for Error
+impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.message())
     }
 }
-/// Implement error conversion (`std::io::Error` -> `RevereError`)
-impl From<std::io::Error> for RevereError {
-    fn from(err: std::io::Error) -> RevereError {
-        RevereError::StdIoError(err)
+/// Implement error conversion (`std::io::Error` -> `Error`)
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Error {
+        Error::StdIoError(err)
     }
 }
-/// Implement error conversion (`dbus::Error` -> `RevereError`)
-impl From<dbus::Error> for RevereError {
-    fn from(err: dbus::Error) -> RevereError {
-        RevereError::DBusCnxError(err)
+/// Implement error conversion (`dbus::Error` -> `Error`)
+impl From<dbus::Error> for Error {
+    fn from(err: dbus::Error) -> Error {
+        Error::DBusCnxError(err)
     }
 }
-/// Implement error conversion (`dbus::MethodErr` -> `RevereError`)
-impl From<dbus::MethodErr> for RevereError {
-    fn from(err: dbus::MethodErr) -> RevereError {
-        RevereError::DBusMethodError(err)
+/// Implement error conversion (`dbus::MethodErr` -> `Error`)
+impl From<dbus::MethodErr> for Error {
+    fn from(err: dbus::MethodErr) -> Error {
+        Error::DBusMethodError(err)
     }
 }
-/// Implement error conversion (`smithay_client_toolkit::client::ConnectError` -> `RevereError`)
-impl From<smithay_client_toolkit::reexports::client::ConnectError> for RevereError {
-    fn from(err: smithay_client_toolkit::reexports::client::ConnectError) -> RevereError {
-        RevereError::WaylandCnxError(err)
+/// Implement error conversion (`smithay_client_toolkit::client::ConnectError` -> `Error`)
+impl From<smithay_client_toolkit::reexports::client::ConnectError> for Error {
+    fn from(err: smithay_client_toolkit::reexports::client::ConnectError) -> Error {
+        Error::WaylandCnxError(err)
     }
 }
-/// Implement error conversion (`smithay_client_toolkit::client::GlobalError` -> `RevereError`)
-impl From<smithay_client_toolkit::reexports::client::GlobalError> for RevereError {
-    fn from(err: smithay_client_toolkit::reexports::client::GlobalError) -> RevereError {
-        RevereError::WaylandGlobalError(err)
+/// Implement error conversion (`smithay_client_toolkit::client::GlobalError` -> `Error`)
+impl From<smithay_client_toolkit::reexports::client::GlobalError> for Error {
+    fn from(err: smithay_client_toolkit::reexports::client::GlobalError) -> Error {
+        Error::WaylandGlobalError(err)
     }
 }
-/// Implement error conversion (`cairo::Error` -> `RevereError`)
-impl From<cairo::Error> for RevereError {
-    fn from(err: cairo::Error) -> RevereError {
-        RevereError::CairoSurfaceError(err)
+/// Implement error conversion (`cairo::Error` -> `Error`)
+impl From<cairo::Error> for Error {
+    fn from(err: cairo::Error) -> Error {
+        Error::CairoSurfaceError(err)
     }
 }
-/// Implement error conversion (`cairo::BorrowError` -> `RevereError`)
-impl From<cairo::BorrowError> for RevereError {
-    fn from(err: cairo::BorrowError) -> RevereError {
-        RevereError::CairoBorrowError(err)
+/// Implement error conversion (`cairo::BorrowError` -> `Error`)
+impl From<cairo::BorrowError> for Error {
+    fn from(err: cairo::BorrowError) -> Error {
+        Error::CairoBorrowError(err)
     }
 }
-/// Implement error conversion (`cairo::IoError` -> `RevereError`)
-impl From<cairo::IoError> for RevereError {
-    fn from(err: cairo::IoError) -> RevereError {
-        RevereError::CairoIoError(err)
+/// Implement error conversion (`cairo::IoError` -> `Error`)
+impl From<cairo::IoError> for Error {
+    fn from(err: cairo::IoError) -> Error {
+        Error::CairoIoError(err)
     }
 }

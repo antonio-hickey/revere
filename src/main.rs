@@ -7,7 +7,7 @@ use config::Config;
 use dbus::{
     blocking::Connection, channel::Sender, message::MatchRule, strings::ErrorName, Message, Path,
 };
-use error::RevereError;
+use error::Error;
 use notification::Notification;
 use std::{
     ffi::CString,
@@ -30,7 +30,7 @@ use window::NotificationWindow;
 /// The default notification icon for Revere
 static DEFAULT_ICON_PNG: &[u8] = include_bytes!("../assets/notification-icon.png");
 
-pub fn main() -> Result<(), RevereError> {
+pub fn main() -> Result<(), Error> {
     // Find user config file or use default config
     let config = Config::find();
 
