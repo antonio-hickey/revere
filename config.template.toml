@@ -1,5 +1,6 @@
 # The notification window 
 [window] 
+animation = "fade-out" # The animation type for the window ("none", "fade-in", "fade-out")
 placement = { x = "Top", y = "Right" } # Where the window is placed 
 size = { height = 100, width = 350 }# How big the window is (HxW) 
 margin = { top = 10, right = 10, bottom = 0, left = 0 } # How much margin the window has 

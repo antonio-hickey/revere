@@ -29,6 +29,7 @@ impl Config {
     fn default() -> Config {
         Config {
             window: WindowConfig {
+                animation: WindowAnimation::FadeOut,
                 placement: WindowPlacement {
                     x: Placement::Top,
                     y: Placement::Right,
@@ -76,22 +77,60 @@ impl Config {
 /// Notification Window configuration
 #[derive(Deserialize)]
 pub struct WindowConfig {
+    /// Which animation should the window use?
+    ///
+    /// Default = [WindowAnimation::FadeOut]
+    pub animation: WindowAnimation,
+
     /// Where to place the window
     pub placement: WindowPlacement,
+
     /// How big of a window
     pub size: WindowSize,
+
     /// How much margin for the window
     pub margin: WindowMargin,
+
     /// What colors for the window
     pub color: WindowColor,
+
     /// The border for the window
     pub border: WindowBorder,
+
     /// The window's text size
     /// Default = `15`
     pub font_size: u8,
+
     /// How long the window is displayed (seconds)
     /// Defualt = `3`
     pub duration: u8,
+}
+
+#[derive(Deserialize)]
+/// The different window animations supported.
+///
+/// TODO: Provide some level of animation configuration.
+pub enum WindowAnimation {
+    /// No window animation.
+    #[serde(rename = "none")]
+    None,
+
+    /// Window fade in animation.
+    ///
+    /// The window starts at low opacity and becomes
+    /// more visible over time, giving a fade in effect.
+    #[serde(rename = "fade-in")]
+    FadeIn,
+
+    /// Window fade out animation.
+    ///
+    /// The window starts at high opacity and becomes
+    /// less visible over time, giving a fade out effect.
+    ///
+    /// NOTE: This is the default variant when no option
+    /// is specified in the config file.
+    #[serde(rename = "fade-out")]
+    FadeOut,
 }
 
 /// Window Placement Configuration

@@ -102,7 +102,12 @@ fn handle_notify(msg: &Message, config: &Config) -> Message {
 
     // Render the notification window for some time duration (default: 3 seconds)
     let start_time = Instant::now();
-    while start_time.elapsed() < Duration::from_secs(config.window.duration as u64) {
+    let duration_time = Duration::from_secs(config.window.duration as u64);
+    while start_time.elapsed() < duration_time {
+        let elapsed = start_time.elapsed().as_secs_f64();
+        let duration = duration_time.as_secs_f64();
+        let completion_percent = elapsed / duration * 100.00;
+
         // Try to handle the dispatching of events on the notification window
         if let Err(e) = notification_window
             .event_queue
@@ -117,6 +122,7 @@ fn handle_notify(msg: &Message, config: &Config) -> Message {
             &notification.body.clone().unwrap_or_default(),
             &image_surface,
             &config.window,
+            completion_percent,
         ) {
             eprintln!("Error drawing notification window: {e:?}");
         }

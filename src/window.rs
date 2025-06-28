@@ -1,4 +1,7 @@
-use crate::{config::WindowConfig, error::Error};
+use crate::{
+    config::{WindowAnimation, WindowConfig},
+    error::Error,
+};
 use cairo::{Context, Format, ImageSurface};
 use pango::{FontDescription, Layout};
 use pangocairo::functions as pango_cairo;
@@ -31,6 +34,7 @@ pub struct NotificationWindow {
     pools: DoubleMemPool,
     display: Display,
     pub event_queue: EventQueue,
+    pub state: WindowState,
 }
 impl NotificationWindow {
     /// Create a new instance of `NotificationWindow`
@@ -87,6 +91,12 @@ impl NotificationWindow {
             |_: smithay_client_toolkit::reexports::client::DispatchData| {},
         )?;
 
+        let state = match config.animation {
+            WindowAnimation::None => WindowState { opacity: 1.0 },
+            WindowAnimation::FadeOut => WindowState { opacity: 1.0 },
+            WindowAnimation::FadeIn => WindowState { opacity: 0.0 },
+        };
+
         // Return a instance of `NotificationWindow`
         let window = Self {
             layer_shell: Some(layer_shell.detach()),
@@ -98,6 +108,7 @@ impl NotificationWindow {
             display,
             event_queue,
             pools,
+            state,
         };
 
         Ok(window)
@@ -110,6 +121,7 @@ impl NotificationWindow {
         body: &str,
         image_surface: &ImageSurface,
         config: &WindowConfig,
+        completion_percent: f64,
     ) -> Result<(), Error> {
         if let Some(pool) = self.pools.pool() {
             // Resize the pool to the size of the surface
@@ -118,6 +130,25 @@ impl NotificationWindow {
             let bytes_per_px = 4;
             let size = (width * height * bytes_per_px) as usize;
             pool.resize(size).unwrap();
+
+            // Handle animations with the state of the window
+            match config.animation {
+                WindowAnimation::FadeIn => {
+                    if completion_percent < 25.0 {
+                        let normalized = (completion_percent / 25.0);
+                        self.state.opacity = (normalized).clamp(0.0, 1.0);
+                    } else {
+                        self.state.opacity = 1.0;
+                    }
+                }
+                WindowAnimation::FadeOut => {
+                    if completion_percent > 75.0 {
+                        let normalized = (completion_percent - 75.0) / 25.0;
+                        self.state.opacity = (1.0 - normalized).clamp(0.0, 1.0);
+                    }
+                }
+                _ => (),
+            }
 
             // Create a intermediate buffer to the size of the surface
             let temp_buffer: Vec<u8> = vec![0; size];
@@ -137,25 +168,27 @@ impl NotificationWindow {
                 let cr = Context::new(&surface).expect("some surface");
 
                 // Perform cario drawing operations
-                cr.set_source_rgb(
+                cr.set_source_rgba(
                     config.color.bg.red,
                     config.color.bg.green,
                     config.color.bg.blue,
+                    self.state.opacity,
                 );
                 cr.paint().ok(); // Fill the background
-                cr.set_source_rgb(
+                cr.set_source_rgba(
                     config.color.fg.red,
                     config.color.fg.green,
                     config.color.fg.blue,
+                    self.state.opacity,
                 );
 
                 // Render the scaled down image within the main window surface
                 cr.set_source_surface(image_surface, 12.0, 15.0)?;
-                cr.paint()?;
+                cr.paint_with_alpha(self.state.opacity)?;
 
                 // Draw the image border
                 cr.rectangle(0.0, 0.0, image_surface.width() as f64 + 25.0, height as f64);
-                cr.set_source_rgba(0.0, 0.0, 0.0, 1.0);
+                cr.set_source_rgba(0.0, 0.0, 0.0, self.state.opacity);
                 cr.set_line_width(4.0);
                 cr.stroke()?;
 
@@ -187,7 +220,10 @@ impl NotificationWindow {
                     config.border.color.red,
                     config.border.color.green,
                     config.border.color.blue,
-                    config.border.alpha,
+                    match config.animation {
+                        WindowAnimation::None => config.border.alpha,
+                        _ => self.state.opacity,
+                    },
                 );
                 cr.set_line_width(config.border.width as f64);
                 if let Err(e) = cr.stroke() {
@@ -301,4 +337,10 @@ impl NotificationWindow {
 
         layout
     }
+}
+
+/// The state of a [NotificationWindow].
+pub struct WindowState {
+    /// The current opacity of the window.
+    pub opacity: f64,
 }
