@@ -1,10 +1,12 @@
 use core::fmt;
-use serde::de::Visitor;
-use serde::{de, Deserialize, Deserializer};
+use serde::{
+    de::{self, Visitor},
+    Deserialize, Deserializer,
+};
 use smithay_client_toolkit::reexports::protocols::wlr::unstable::layer_shell::v1::client::zwlr_layer_surface_v1;
 use std::{env, fs, path::PathBuf};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, Copy)]
 pub struct Config {
     pub window: WindowConfig,
 }
@@ -75,7 +77,7 @@ impl Config {
 }
 
 /// Notification Window configuration
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, Copy)]
 pub struct WindowConfig {
     /// Which animation should the window use?
     ///
@@ -106,7 +108,7 @@ pub struct WindowConfig {
     pub duration: u8,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, Copy)]
 /// The different window animations supported.
 ///
 /// TODO: Provide some level of animation configuration.
@@ -134,7 +136,7 @@ pub enum WindowAnimation {
 }
 
 /// Window Placement Configuration
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, Copy)]
 pub struct WindowPlacement {
     /// x axis placement (Left or Right)
     /// Default = `Right`
@@ -145,7 +147,7 @@ pub struct WindowPlacement {
 }
 
 /// Window Placement Options
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, Copy)]
 pub enum Placement {
     Top,
     Bottom,
@@ -165,7 +167,7 @@ impl Placement {
 }
 
 /// Window Size Configuration
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, Copy)]
 pub struct WindowSize {
     /// How tall of a window
     /// Default = `100`
@@ -176,7 +178,7 @@ pub struct WindowSize {
 }
 
 /// Window Margin Configuration
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, Copy)]
 pub struct WindowMargin {
     /// How much top margin (px)
     /// Default = `10`
@@ -193,7 +195,7 @@ pub struct WindowMargin {
 }
 
 /// Window Size Configuration
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, Copy)]
 pub struct WindowBorder {
     /// Border Width
     /// Default = `8`
@@ -209,7 +211,7 @@ pub struct WindowBorder {
 
 /// Window Color Configuration
 // TODO: Border Colors?
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, Copy)]
 pub struct WindowColor {
     /// Background color
     /// Default = `white`
@@ -222,7 +224,7 @@ pub struct WindowColor {
 }
 
 /// Color
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, Copy)]
 pub struct Rgb {
     pub red: f64,
     pub green: f64,

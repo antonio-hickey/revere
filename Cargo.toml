@@ -5,8 +5,6 @@ name = "revere"
 version = "0.1.0"
 repository = "https://github.com/antonio-hickey/revere"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 dbus = "0.9.7"
 wayland-client = "0.28"

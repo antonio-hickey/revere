@@ -9,26 +9,7 @@ use dbus::{
 };
 use error::Error;
 use notification::Notification;
-use std::{
-    ffi::CString,
-    fs::File,
-    time::{Duration, Instant},
-};
-use window::NotificationWindow;
-
-// Hacked up prototype to just set up a connection
-// with D-Bus, listen for messages on the notifications
-// interface, and parse them into a `Notification` to
-// display with a notification window for a few seconds.
-//
-// TODO:
-//     * Fix the issue of youtube notifications showing
-//       without thumbnail first time.
-//     * figure out a default UI that looks nice
-//     * guess I can support XOrg as well
-
-/// The default notification icon for Revere
-static DEFAULT_ICON_PNG: &[u8] = include_bytes!("../assets/notification-icon.png");
+use std::ffi::CString;
 
 pub fn main() -> Result<(), Error> {
     // Find user config file or use default config
@@ -51,7 +32,7 @@ pub fn main() -> Result<(), Error> {
 
         // Handle the different Notification interface methods
         let reply = match member_name.as_deref() {
-            Some("Notify") => handle_notify(msg, &config),
+            Some("Notify") => handle_notify(msg, config),
             Some("GetCapabilities") => handle_get_capabilities(msg),
             Some("GetServerInformation") => handle_get_server_information(msg),
             _ => {
@@ -64,8 +45,8 @@ pub fn main() -> Result<(), Error> {
             }
         };
 
-        // Respond with true or false based
-        // on the result of sending our reply
+        // Reply with an indication that we
+        // understood the message or not.
         cnx.send(reply).is_ok()
     })?;
 
@@ -76,60 +57,12 @@ pub fn main() -> Result<(), Error> {
 }
 
 /// Handle the Notify method for the Notifications Interface
-fn handle_notify(msg: &Message, config: &Config) -> Message {
-    // Parse the message into a `Notification`
-    let notification = Notification::from(msg);
-
-    // Extract the icon image from the notification
-    let icon = notification
-        .icon
-        .as_ref()
-        .and_then(|image| File::open(image).ok())
-        .map(|f| Box::new(f) as Box<dyn std::io::Read>)
-        .unwrap_or_else(|| {
-            // No thumbnail or notification icon provided
-            // so use the default revere notification icon
-            Box::new(std::io::Cursor::new(DEFAULT_ICON_PNG)) as Box<dyn std::io::Read>
-        });
-
-    // Create an Image Surface for the notification icon
-    let image_surface =
-        NotificationWindow::create_image_surface(icon).expect("Failed to create image surface");
-
-    // Create a new mutable instance of `NotificationWindow`
-    let mut notification_window =
-        NotificationWindow::try_new(&config.window).expect("Failed to crate notification window");
-
-    // Render the notification window for some time duration (default: 3 seconds)
-    let start_time = Instant::now();
-    let duration_time = Duration::from_secs(config.window.duration as u64);
-    while start_time.elapsed() < duration_time {
-        let elapsed = start_time.elapsed().as_secs_f64();
-        let duration = duration_time.as_secs_f64();
-        let completion_percent = elapsed / duration * 100.00;
-
-        // Try to handle the dispatching of events on the notification window
-        if let Err(e) = notification_window
-            .event_queue
-            .dispatch(&mut (), |_, _, _| {})
-        {
-            eprintln!("Failed to dispatch event: {e:?}");
-        }
-
-        // Try to render the notification window
-        if let Err(e) = notification_window.draw(
-            &notification.summary.clone().unwrap_or_default(),
-            &notification.body.clone().unwrap_or_default(),
-            &image_surface,
-            &config.window,
-            completion_percent,
-        ) {
-            eprintln!("Error drawing notification window: {e:?}");
-        }
-    }
-
-    // Flush the display of the notification window
-    notification_window.flush_display().ok();
+fn handle_notify(msg: &Message, config: Config) -> Message {
+    // Spawn a new thread to parse and display the notification
+    std::thread::spawn({
+        let notification = Notification::from(msg);
+        move || notification.display_in_new_window(&config)
+    });
 
     // Respond to the client with 1 indicating success
     Message::method_return(msg).append1(1u32)
